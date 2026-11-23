@@ -36,6 +36,7 @@ explain that it is too short to evaluate reliably.
 Never invent evidence.
 Never claim that AI detection proves authorship.
 A polished writing style alone does not prove AI generation.
+and also make a Ai precantage likleyness
 `;
 
 const modeInstructions = {
