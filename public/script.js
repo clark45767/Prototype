@@ -3,40 +3,133 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatForm = document.getElementById("chatForm");
     const messageInput = document.getElementById("messageInput");
     const sendButton = document.getElementById("sendButton");
+    const chatArea = document.getElementById("chatMessages");
+    const welcome = document.getElementById("welcome");
 
-    const chatArea =
-        document.getElementById("chatMessages") ||
-        document.getElementById("messages") ||
-        document.querySelector(".chat-messages") ||
-        document.querySelector(".messages");
+    const apiKeyInput = document.getElementById("apiKey");
+    const modelInput = document.getElementById("modelInput");
+    const settingsStatus = document.getElementById("settingsStatus");
 
-    // Start every page visit with a fresh conversation.
-    localStorage.removeItem("nova_chat_history");
-    sessionStorage.removeItem("nova_chat_history");
+    const saveKeyButton = document.getElementById("saveKeyButton");
+    const removeKeyButton = document.getElementById("removeKeyButton");
+    const saveModelButton = document.getElementById("saveModelButton");
 
-    if (!chatForm || !messageInput || !chatArea) {
-        console.error("NOVA: Required chat elements were not found.");
+    const selectedMode = document.getElementById("selectedMode");
+
+    let currentMode = "full";
+    const defaultModel = "baidu/ernie-5.5-flash-preview:free";
+
+    if (!chatForm || !messageInput || !sendButton || !chatArea) {
+        console.error("NOVA: Chat elements are missing.");
         return;
     }
 
-    function addMessage(text, sender) {
-        const message = document.createElement("div");
-
-        message.className = `message ${sender}-message`;
-        message.textContent = text;
-
-        chatArea.appendChild(message);
-        chatArea.scrollTop = chatArea.scrollHeight;
-
-        return message;
+    // Load settings
+    if (apiKeyInput) {
+        apiKeyInput.value = sessionStorage.getItem("nova_api_key") || "";
     }
 
-    async function sendMessage(event) {
+    if (modelInput) {
+        modelInput.value =
+            localStorage.getItem("nova_model") || defaultModel;
+    }
+
+    // Save API key for this browser tab only
+    saveKeyButton?.addEventListener("click", () => {
+        const key = apiKeyInput.value.trim();
+
+        if (!key) {
+            settingsStatus.textContent = "Please enter an API key.";
+            return;
+        }
+
+        sessionStorage.setItem("nova_api_key", key);
+        settingsStatus.textContent = "API key saved for this tab.";
+    });
+
+    removeKeyButton?.addEventListener("click", () => {
+        sessionStorage.removeItem("nova_api_key");
+
+        if (apiKeyInput) apiKeyInput.value = "";
+
+        settingsStatus.textContent =
+            "Saved API key removed. The server key may still be used.";
+    });
+
+    // Save selected model
+    saveModelButton?.addEventListener("click", () => {
+        const model = modelInput.value.trim();
+
+        if (!model) {
+            settingsStatus.textContent = "Please enter a model ID.";
+            return;
+        }
+
+        localStorage.setItem("nova_model", model);
+        settingsStatus.textContent = "AI model saved.";
+    });
+
+    // Analysis modes
+    const modeNames = {
+        full: "Full analysis",
+        lexical: "Lexical analysis",
+        syntactic: "Syntax analysis",
+        rhetorical: "Rhetorical analysis",
+        formatting: "Formatting analysis"
+    };
+
+    document.querySelectorAll(".mode").forEach(button => {
+        button.addEventListener("click", () => {
+            document.querySelectorAll(".mode").forEach(item => {
+                item.classList.remove("active");
+            });
+
+            button.classList.add("active");
+            currentMode = button.dataset.mode || "full";
+
+            if (selectedMode) {
+                selectedMode.textContent = modeNames[currentMode];
+            }
+        });
+    });
+
+    // Create chat messages with the correct CSS classes
+    function addMessage(text, sender) {
+        const message = document.createElement("div");
+        message.className = sender === "user"
+            ? "message user"
+            : "message ai";
+
+        const label = document.createElement("div");
+        label.className = "message-label";
+        label.textContent = sender === "user" ? "YOU" : "NOVA";
+
+        const content = document.createElement("div");
+        content.className = "message-content";
+        content.textContent = text;
+
+        message.appendChild(label);
+        message.appendChild(content);
+
+        chatArea.appendChild(message);
+
+        chatArea.scrollIntoView({
+            behavior: "smooth",
+            block: "end"
+        });
+
+        return content;
+    }
+
+    // Send message
+    chatForm.addEventListener("submit", async event => {
         event.preventDefault();
 
         const message = messageInput.value.trim();
 
-        if (!message) return;
+        if (!message || sendButton.disabled) return;
+
+        if (welcome) welcome.style.display = "none";
 
         addMessage(message, "user");
 
@@ -44,55 +137,66 @@ document.addEventListener("DOMContentLoaded", () => {
         messageInput.style.height = "auto";
 
         sendButton.disabled = true;
-        sendButton.textContent = "Analyzing...";
+        sendButton.setAttribute("aria-label", "Analyzing");
+        sendButton.textContent = "…";
 
-        const loadingMessage = addMessage(
+        const replyElement = addMessage(
             "NOVA is analyzing your text...",
-            "assistant"
+            "ai"
         );
 
         try {
+            const apiKey =
+                sessionStorage.getItem("nova_api_key") || "";
+
+            const model =
+                localStorage.getItem("nova_model") || defaultModel;
+
             const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ message })
+                body: JSON.stringify({
+                    message,
+                    apiKey,
+                    model,
+                    mode: currentMode
+                })
             });
 
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || "Request failed.");
+                throw new Error(data.error || "AI request failed.");
             }
 
-            loadingMessage.textContent = data.reply;
+            replyElement.textContent = data.reply;
 
         } catch (error) {
-            loadingMessage.textContent =
-                "Error: " + error.message;
+            console.error("NOVA error:", error);
 
-            console.error("NOVA request error:", error);
+            replyElement.textContent =
+                "NOVA encountered an error: " + error.message;
 
         } finally {
             sendButton.disabled = false;
-            sendButton.textContent = "Send";
+            sendButton.textContent = "↑";
+            sendButton.setAttribute("aria-label", "Send message");
+
             messageInput.focus();
-            chatArea.scrollTop = chatArea.scrollHeight;
         }
-    }
+    });
 
-    chatForm.addEventListener("submit", sendMessage);
-
-    // Automatically increase the typing box as needed.
+    // Compact, automatically expanding typing box
     messageInput.addEventListener("input", () => {
         messageInput.style.height = "auto";
         messageInput.style.height =
-            Math.min(messageInput.scrollHeight, 100) + "px";
+            Math.min(messageInput.scrollHeight, 110) + "px";
     });
 
-    // Enter sends; Shift + Enter creates a new line.
-    messageInput.addEventListener("keydown", (event) => {
+    // Enter sends; Shift + Enter creates a new line
+    messageInput.addEventListener("keydown", event => {
         if (
             event.key === "Enter" &&
             !event.shiftKey &&
@@ -103,13 +207,25 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Allow suggestion buttons to fill the typing box.
-    document.querySelectorAll("[data-prompt]").forEach((button) => {
+    // Suggestion buttons
+    document.querySelectorAll(".suggestion").forEach(button => {
         button.addEventListener("click", () => {
-            messageInput.value = button.dataset.prompt;
+            messageInput.value = button.dataset.prompt || "";
             messageInput.focus();
+            messageInput.dispatchEvent(new Event("input"));
         });
     });
 
-    messageInput.focus();
+    // New analysis button
+    document.getElementById("newChatButton")?.addEventListener("click", () => {
+        chatArea.replaceChildren();
+
+        if (welcome) welcome.style.display = "block";
+
+        messageInput.value = "";
+        messageInput.style.height = "auto";
+        messageInput.focus();
+    });
+
+    sendButton.setAttribute("aria-label", "Send message");
 });
