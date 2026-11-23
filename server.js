@@ -1,117 +1,135 @@
 
-const express = require("express");
-const dotenv = require("dotenv");
-const path = require("path");
+require("dotenv").config();
 
-dotenv.config();
+const express = require("express");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const SYSTEM_PROMPT = `
-You are NOVA, an AI text detector.
+You are NOVA Studio, an AI writing analysis assistant.
 
-Evaluate submitted writing for possible AI-generated patterns.
+Analyze submitted writing for signs that it may be AI-generated.
 
-Score these categories from 0 to 5:
-A. Lexical choices
-B. Sentence structure
-C. Rhetorical stance
-D. Formatting
+Evaluate these four categories from 0 to 5:
+1. Lexical choices
+2. Sentence structure
+3. Rhetorical stance
+4. Surface formatting
 
-Provide exact quotes as evidence.
-Never invent evidence.
-If the text is under 50 words, say it is too short to evaluate reliably.
+For each category:
+- Give a score from 0 to 5.
+- Include a short exact quote from the submitted text as evidence.
+- If there is no evidence, say "None found" and score 0.
 
-Give:
-- Checklist evaluation
-- Additional signals
-- Holistic reading
-- Reconciliation
-- Verdict: AI-like, Human-like, or Inconclusive
-- Confidence: Low, Medium, or High
-- Two or three sentences of reasoning
+Then provide:
+- Overall verdict: AI-like, Human-like, or Inconclusive.
+- Confidence: Low, Medium, or High.
+- A short explanation.
 
-AI detection cannot prove authorship.
-Also give a percentasge on how likley it is Ai generated text
+If the text contains fewer than 50 words, explain that it is too short to evaluate reliably.
+
+Never claim that an AI detector can prove who wrote something.
+Do not invent evidence. Be fair and cautious.
 `;
 
 app.get("/api/health", (req, res) => {
-    res.json({ status: "NOVA backend online" });
+    res.json({
+        status: "NOVA backend online",
+        model: process.env.OPENROUTER_MODEL || "baidu/ernie-5.5-flash-preview:free"
+    });
 });
 
 app.post("/api/chat", async (req, res) => {
     try {
-        const { message, apiKey, model } = req.body || {};
+        const message = req.body.message;
 
-        if (!message || typeof message !== "string") {
+        if (typeof message !== "string" || !message.trim()) {
             return res.status(400).json({
-                error: "Enter text to analyze."
+                error: "Please enter some text."
             });
         }
 
-        const key = apiKey?.trim() || process.env.OPENROUTER_API_KEY;
-
-        if (!key) {
-            return res.status(401).json({
-                error: "Please enter your OpenRouter API key."
+        if (message.length > 15000) {
+            return res.status(400).json({
+                error: "Your text is too long. Maximum: 15,000 characters."
             });
         }
 
-        const selectedModel =
-            model?.trim() ||
-            process.env.OPENROUTER_MODEL ||
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        const model = process.env.OPENROUTER_MODEL ||
             "baidu/ernie-5.5-flash-preview:free";
 
-        const aiResponse = await fetch(
+        if (!apiKey) {
+            return res.status(500).json({
+                error: "The server API key is not configured."
+            });
+        }
+
+        const response = await fetch(
             "https://openrouter.ai/api/v1/chat/completions",
             {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${key}`,
+                    "Authorization": `Bearer ${apiKey}`,
                     "Content-Type": "application/json",
                     "X-OpenRouter-Title": "NOVA Studio"
                 },
                 body: JSON.stringify({
-                    model: selectedModel,
+                    model,
                     messages: [
-                        { role: "system", content: SYSTEM_PROMPT },
-                        { role: "user", content: message }
+                        {
+                            role: "system",
+                            content: SYSTEM_PROMPT
+                        },
+                        {
+                            role: "user",
+                            content: message
+                        }
                     ]
                 })
             }
         );
 
-        const result = await aiResponse.json();
+        const data = await response.json();
 
-        if (!aiResponse.ok) {
-            return res.status(aiResponse.status).json({
-                error: result.error?.message || "OpenRouter request failed."
+        if (!response.ok) {
+            console.error("OpenRouter error:", data);
+
+            return res.status(response.status).json({
+                error: data.error?.message || "The AI provider returned an error."
             });
         }
 
-        const reply = result.choices?.[0]?.message?.content;
+        const reply = data.choices?.[0]?.message?.content;
 
         if (!reply) {
             return res.status(502).json({
-                error: "The AI returned an empty response."
+                error: "The AI provider returned an empty response."
             });
         }
 
         res.json({ reply });
 
     } catch (error) {
-        console.error(error);
+        console.error("Server error:", error);
 
         res.status(500).json({
-            error: "Backend error: " + error.message
+            error: "NOVA could not process your request."
         });
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`NOVA running at http://localhost:${PORT}`);
+app.use("/api", (req, res) => {
+    res.status(404).json({
+        error: "API route not found."
+    });
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`NOVA Studio running on port ${PORT}`);
 });
