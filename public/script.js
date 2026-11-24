@@ -20,18 +20,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const defaultModel = "baidu/ernie-5.5-flash-preview:free";
 
     if (!chatForm || !messageInput || !sendButton || !chatArea) {
-        console.error("NOVA: Chat elements are missing.");
+        console.error("Capricorn: Chat elements are missing.");
         return;
     }
 
     // Load settings
     if (apiKeyInput) {
-        apiKeyInput.value = sessionStorage.getItem("nova_api_key") || "";
+        apiKeyInput.value = sessionStorage.getItem("Capricorn_api_key") || "";
     }
 
     if (modelInput) {
         modelInput.value =
-            localStorage.getItem("nova_model") || defaultModel;
+            localStorage.getItem("Capricorn_model") || defaultModel;
     }
 
     // Save API key for this browser tab only
@@ -43,12 +43,12 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        sessionStorage.setItem("nova_api_key", key);
+        sessionStorage.setItem("Capricorn_api_key", key);
         settingsStatus.textContent = "API key saved for this tab.";
     });
 
     removeKeyButton?.addEventListener("click", () => {
-        sessionStorage.removeItem("nova_api_key");
+        sessionStorage.removeItem("Capricorn_api_key");
 
         if (apiKeyInput) apiKeyInput.value = "";
 
@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        localStorage.setItem("nova_model", model);
+        localStorage.setItem("Capricorn_model", model);
         settingsStatus.textContent = "AI model saved.";
     });
 
@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const label = document.createElement("div");
         label.className = "message-label";
-        label.textContent = sender === "user" ? "YOU" : "NOVA";
+        label.textContent = sender === "user" ? "YOU" : "Capricorn";
 
         const content = document.createElement("div");
         content.className = "message-content";
@@ -141,16 +141,16 @@ document.addEventListener("DOMContentLoaded", () => {
         sendButton.textContent = "…";
 
         const replyElement = addMessage(
-            "NOVA is analyzing your text...",
+            "Capricorn is analyzing your text...",
             "ai"
         );
 
         try {
             const apiKey =
-                sessionStorage.getItem("nova_api_key") || "";
+                sessionStorage.getItem("Capricorn_api_key") || "";
 
             const model =
-                localStorage.getItem("nova_model") || defaultModel;
+                localStorage.getItem("Capricorn_model") || defaultModel;
 
             const response = await fetch("/api/chat", {
                 method: "POST",
@@ -174,10 +174,10 @@ document.addEventListener("DOMContentLoaded", () => {
             replyElement.textContent = data.reply;
 
         } catch (error) {
-            console.error("NOVA error:", error);
+            console.error("Capricorn error:", error);
 
             replyElement.textContent =
-                "NOVA encountered an error: " + error.message;
+                "Capricorn encountered an error: " + error.message;
 
         } finally {
             sendButton.disabled = false;
