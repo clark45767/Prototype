@@ -11,7 +11,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const SYSTEM_PROMPT = `
-You are NOVA Studio, an AI writing analysis assistant.
+You are Capricorn Studio, an AI writing analysis assistant.
 
 Your purpose is to examine writing for possible signs of AI-generated text.
 
@@ -49,7 +49,7 @@ const modeInstructions = {
 
 app.get("/api/health", (req, res) => {
     res.json({
-        status: "NOVA backend online",
+        status: "Capricorn backend online",
         model: process.env.OPENROUTER_MODEL ||
             "baidu/ernie-5.5-flash-preview:free"
     });
@@ -99,7 +99,7 @@ app.post("/api/chat", async (req, res) => {
                 headers: {
                     "Authorization": `Bearer ${key}`,
                     "Content-Type": "application/json",
-                    "X-OpenRouter-Title": "NOVA Studio"
+                    "X-OpenRouter-Title": "Capricorn"
                 },
                 body: JSON.stringify({
                     model: selectedModel,
@@ -151,10 +151,10 @@ app.post("/api/chat", async (req, res) => {
         return res.json({ reply });
 
     } catch (error) {
-        console.error("NOVA server error:", error);
+        console.error("Capricorn server error:", error);
 
         return res.status(500).json({
-            error: "NOVA could not connect to the AI service. Check your server logs."
+            error: "Capricorn could not connect to the AI service. Check your server logs."
         });
     }
 });
@@ -166,5 +166,5 @@ app.use("/api", (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`NOVA Studio running on port ${PORT}`);
+    console.log(`Capricorn Studio running on port ${PORT}`);
 });

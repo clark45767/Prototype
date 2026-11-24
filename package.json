@@ -1,7 +1,7 @@
 {
   "name": "Capricorn",
   "version": "1.0.0",
-  "description": "NOVA Studio AI Chatbot",
+  "description": "Capricorn Studio AI Chatbot",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
